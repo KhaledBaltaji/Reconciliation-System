@@ -1,0 +1,26 @@
+{
+  "name": "prediction-market",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prediction Market Trading Platform",
+  "scripts": {
+    "dev": "pnpm run --parallel dev",
+    "dev:api": "pnpm --filter @prediction-market/api dev",
+    "dev:web": "pnpm --filter @prediction-market/web dev",
+    "build": "pnpm run --parallel build",
+    "build:api": "pnpm --filter @prediction-market/api build",
+    "build:web": "pnpm --filter @prediction-market/web build",
+    "db:generate": "pnpm --filter @prediction-market/api prisma:generate",
+    "db:migrate": "pnpm --filter @prediction-market/api prisma:migrate",
+    "db:studio": "pnpm --filter @prediction-market/api prisma:studio",
+    "db:seed": "pnpm --filter @prediction-market/api prisma:seed",
+    "lint": "pnpm run --parallel lint",
+    "typecheck": "pnpm run --parallel typecheck",
+    "clean": "pnpm run --parallel clean"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}

@@ -1,0 +1,359 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USERS & AUTH ====================
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum KycStatus {
+  NONE
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id              String    @id @default(uuid())
+  phoneNumber     String?   @unique @map("phone_number")
+  betarabiaId     String?   @unique @map("betarabia_id")
+  fullName        String    @map("full_name")
+  email           String?
+  passwordHash    String?   @map("password_hash")
+  role            UserRole  @default(USER)
+  kycStatus       KycStatus @default(NONE) @map("kyc_status")
+  kycDocumentUrl  String?   @map("kyc_document_url")
+  kycSubmittedAt  DateTime? @map("kyc_submitted_at")
+  kycReviewedAt   DateTime? @map("kyc_reviewed_at")
+  kycReviewedBy   String?   @map("kyc_reviewed_by")
+  isActive        Boolean   @default(true) @map("is_active")
+  lastLoginAt     DateTime? @map("last_login_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  wallet          Wallet?
+  sessions        UserSession[]
+  orders          Order[]
+  positions       Position[]
+  transactions    Transaction[]
+  createdMarkets  Market[]       @relation("MarketCreator")
+  adminActions    AdminAction[]
+
+  @@map("users")
+}
+
+model UserSession {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  tokenHash   String   @map("token_hash")
+  deviceInfo  String?  @map("device_info")
+  ipAddress   String?  @map("ip_address")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("user_sessions")
+}
+
+model OtpVerification {
+  id          String   @id @default(uuid())
+  phoneNumber String   @map("phone_number")
+  code        String
+  attempts    Int      @default(0)
+  expiresAt   DateTime @map("expires_at")
+  verifiedAt  DateTime? @map("verified_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([phoneNumber, code])
+  @@map("otp_verifications")
+}
+
+// ==================== WALLETS & TRANSACTIONS ====================
+
+model Wallet {
+  id                String   @id @default(uuid())
+  userId            String   @unique @map("user_id")
+  balanceUsd        Decimal  @default(0) @map("balance_usd") @db.Decimal(18, 2)
+  lockedBalance     Decimal  @default(0) @map("locked_balance") @db.Decimal(18, 2)
+  isBetarabiaLinked Boolean  @default(false) @map("is_betarabia_linked")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("wallets")
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  TRADE_ENTRY_FEE
+  TRADE_EXIT_FEE
+  TRADE_BUY
+  TRADE_SELL
+  SETTLEMENT_WIN
+  SETTLEMENT_LOSS
+  DEMO_CREDIT
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model Transaction {
+  id            String            @id @default(uuid())
+  userId        String            @map("user_id")
+  type          TransactionType
+  amount        Decimal           @db.Decimal(18, 2)
+  fee           Decimal           @default(0) @db.Decimal(18, 2)
+  balanceBefore Decimal           @map("balance_before") @db.Decimal(18, 2)
+  balanceAfter  Decimal           @map("balance_after") @db.Decimal(18, 2)
+  status        TransactionStatus @default(PENDING)
+  paymentMethod String?           @map("payment_method")
+  referenceId   String?           @map("reference_id")
+  metadata      Json?
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@map("transactions")
+}
+
+model DepositMethod {
+  id            String  @id @default(uuid())
+  name          String
+  type          String  // bank, crypto, card, betarabia
+  feePercentage Decimal @default(0) @map("fee_percentage") @db.Decimal(5, 4)
+  feeFixed      Decimal @default(0) @map("fee_fixed") @db.Decimal(18, 2)
+  minAmount     Decimal @default(0) @map("min_amount") @db.Decimal(18, 2)
+  maxAmount     Decimal? @map("max_amount") @db.Decimal(18, 2)
+  isActive      Boolean @default(true) @map("is_active")
+  instructions  Json?
+  displayOrder  Int     @default(0) @map("display_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("deposit_methods")
+}
+
+// ==================== MARKETS ====================
+
+model Category {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  slug         String   @unique
+  iconUrl      String?  @map("icon_url")
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  markets Market[]
+
+  @@map("categories")
+}
+
+enum MarketType {
+  BINARY
+  MULTIPLE_CHOICE
+}
+
+enum MarketStatus {
+  DRAFT
+  OPEN
+  SUSPENDED
+  CLOSED
+  RESOLVED
+  CANCELLED
+}
+
+model Market {
+  id               String       @id @default(uuid())
+  categoryId       String       @map("category_id")
+  title            String
+  description      String?
+  imageUrl         String?      @map("image_url")
+  marketType       MarketType   @map("market_type")
+  status           MarketStatus @default(DRAFT)
+  resolutionSource String?      @map("resolution_source")
+  expiresAt        DateTime     @map("expires_at")
+  resolvedAt       DateTime?    @map("resolved_at")
+  createdById      String       @map("created_by_id")
+  totalVolume      Decimal      @default(0) @map("total_volume") @db.Decimal(18, 2)
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  category  Category        @relation(fields: [categoryId], references: [id])
+  createdBy User            @relation("MarketCreator", fields: [createdById], references: [id])
+  outcomes  MarketOutcome[]
+  orders    Order[]
+  trades    Trade[]
+  positions Position[]
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("markets")
+}
+
+model MarketOutcome {
+  id             String   @id @default(uuid())
+  marketId       String   @map("market_id")
+  name           String
+  currentPrice   Decimal  @default(0.5) @map("current_price") @db.Decimal(5, 4)
+  totalVolume    Decimal  @default(0) @map("total_volume") @db.Decimal(18, 2)
+  winningOutcome Boolean? @map("winning_outcome")
+  displayOrder   Int      @default(0) @map("display_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  market       Market         @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  orders       Order[]
+  trades       Trade[]
+  positions    Position[]
+  priceHistory PriceHistory[]
+
+  @@index([marketId])
+  @@map("market_outcomes")
+}
+
+model PriceHistory {
+  id        BigInt   @id @default(autoincrement())
+  outcomeId String   @map("outcome_id")
+  price     Decimal  @db.Decimal(5, 4)
+  volume    Decimal  @default(0) @db.Decimal(18, 2)
+  timestamp DateTime @default(now())
+
+  outcome MarketOutcome @relation(fields: [outcomeId], references: [id], onDelete: Cascade)
+
+  @@index([outcomeId, timestamp])
+  @@map("price_history")
+}
+
+// ==================== ORDERS & TRADING ====================
+
+enum OrderSide {
+  BUY
+  SELL
+}
+
+enum OrderType {
+  LIMIT
+  MARKET
+}
+
+enum OrderStatus {
+  OPEN
+  PARTIAL
+  FILLED
+  CANCELLED
+}
+
+model Order {
+  id             String      @id @default(uuid())
+  userId         String      @map("user_id")
+  marketId       String      @map("market_id")
+  outcomeId      String      @map("outcome_id")
+  side           OrderSide
+  orderType      OrderType   @map("order_type")
+  price          Decimal     @db.Decimal(5, 4)
+  quantity       Decimal     @db.Decimal(18, 2)
+  filledQuantity Decimal     @default(0) @map("filled_quantity") @db.Decimal(18, 2)
+  status         OrderStatus @default(OPEN)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  user      User          @relation(fields: [userId], references: [id])
+  market    Market        @relation(fields: [marketId], references: [id])
+  outcome   MarketOutcome @relation(fields: [outcomeId], references: [id])
+  buyTrades Trade[]       @relation("BuyOrder")
+  sellTrades Trade[]      @relation("SellOrder")
+
+  @@index([userId])
+  @@index([marketId, outcomeId, side, status])
+  @@index([status])
+  @@map("orders")
+}
+
+model Trade {
+  id          String   @id @default(uuid())
+  marketId    String   @map("market_id")
+  outcomeId   String   @map("outcome_id")
+  buyOrderId  String   @map("buy_order_id")
+  sellOrderId String   @map("sell_order_id")
+  buyerId     String   @map("buyer_id")
+  sellerId    String   @map("seller_id")
+  price       Decimal  @db.Decimal(5, 4)
+  quantity    Decimal  @db.Decimal(18, 2)
+  buyerFee    Decimal  @map("buyer_fee") @db.Decimal(18, 2)
+  sellerFee   Decimal  @map("seller_fee") @db.Decimal(18, 2)
+  executedAt  DateTime @default(now()) @map("executed_at")
+
+  market    Market        @relation(fields: [marketId], references: [id])
+  outcome   MarketOutcome @relation(fields: [outcomeId], references: [id])
+  buyOrder  Order         @relation("BuyOrder", fields: [buyOrderId], references: [id])
+  sellOrder Order         @relation("SellOrder", fields: [sellOrderId], references: [id])
+
+  @@index([marketId, outcomeId])
+  @@index([executedAt])
+  @@map("trades")
+}
+
+model Position {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  marketId      String   @map("market_id")
+  outcomeId     String   @map("outcome_id")
+  quantity      Decimal  @db.Decimal(18, 2)
+  avgEntryPrice Decimal  @map("avg_entry_price") @db.Decimal(5, 4)
+  realizedPnl   Decimal  @default(0) @map("realized_pnl") @db.Decimal(18, 2)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user    User          @relation(fields: [userId], references: [id])
+  market  Market        @relation(fields: [marketId], references: [id])
+  outcome MarketOutcome @relation(fields: [outcomeId], references: [id])
+
+  @@unique([userId, marketId, outcomeId])
+  @@index([userId])
+  @@index([marketId])
+  @@map("positions")
+}
+
+// ==================== ADMIN ====================
+
+model AdminAction {
+  id         String   @id @default(uuid())
+  adminId    String   @map("admin_id")
+  actionType String   @map("action_type")
+  targetType String   @map("target_type")
+  targetId   String   @map("target_id")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  admin User @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([targetType, targetId])
+  @@map("admin_actions")
+}

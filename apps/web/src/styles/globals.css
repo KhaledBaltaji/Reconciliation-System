@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-900 text-gray-100 antialiased;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
+  }
+
+  .btn-success {
+    @apply btn bg-success-600 text-white hover:bg-success-500 focus:ring-success-500;
+  }
+
+  .btn-danger {
+    @apply btn bg-danger-600 text-white hover:bg-danger-500 focus:ring-danger-500;
+  }
+
+  .btn-secondary {
+    @apply btn bg-gray-700 text-gray-100 hover:bg-gray-600 focus:ring-gray-500;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-gray-300 hover:bg-gray-800 focus:ring-gray-500;
+  }
+
+  .input {
+    @apply w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+  }
+
+  .card {
+    @apply bg-gray-800 border border-gray-700 rounded-xl;
+  }
+
+  .price-up {
+    @apply text-success-500;
+  }
+
+  .price-down {
+    @apply text-danger-500;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Order book colors */
+.bid-depth {
+  background: linear-gradient(to left, rgba(34, 197, 94, 0.2), transparent);
+}
+
+.ask-depth {
+  background: linear-gradient(to left, rgba(239, 68, 68, 0.2), transparent);
+}
