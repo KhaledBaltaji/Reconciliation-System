@@ -101,6 +101,21 @@ export default function SimpleBetting({ marketId, title, outcomes, onBetPlaced }
       return;
     }
 
+    // Get current price, default to 0.5 if not available
+    const currentPrice = selectedOutcomeData?.currentPrice || 0.5;
+    if (currentPrice <= 0 || currentPrice >= 1) {
+      toast.error('Invalid price. Please try again.');
+      return;
+    }
+
+    const orderPrice = Math.min(currentPrice + 0.02, 0.99); // Cap at 99%
+    const orderQuantity = amount / currentPrice;
+
+    if (!isFinite(orderQuantity) || orderQuantity <= 0) {
+      toast.error('Invalid bet amount');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // Place a market order (buy at current price)
@@ -108,8 +123,8 @@ export default function SimpleBetting({ marketId, title, outcomes, onBetPlaced }
         marketId,
         outcomeId: selectedOutcome,
         side: 'BUY',
-        price: price + 0.02, // Slightly above market to ensure fill
-        quantity: amount / price,
+        price: orderPrice,
+        quantity: orderQuantity,
       });
 
       toast.success(`Bet placed! Good luck!`);
@@ -135,18 +150,25 @@ export default function SimpleBetting({ marketId, title, outcomes, onBetPlaced }
   const handleClosePosition = async (position: Position) => {
     if (closingPosition) return;
 
+    const positionQty = Number(position.quantity);
+    if (!isFinite(positionQty) || positionQty <= 0) {
+      toast.error('Invalid position quantity');
+      return;
+    }
+
     setClosingPosition(position.id);
     try {
       const outcome = outcomes.find(o => o.id === position.outcomeId);
       const currentPrice = outcome?.currentPrice || 0.5;
+      const sellPrice = Math.max(currentPrice - 0.02, 0.01);
 
       // Sell at slightly below market to ensure fill
       await ordersApi.place({
         marketId,
         outcomeId: position.outcomeId,
         side: 'SELL',
-        price: Math.max(currentPrice - 0.02, 0.01),
-        quantity: Number(position.quantity),
+        price: sellPrice,
+        quantity: positionQty,
       });
 
       toast.success('Position closed!');

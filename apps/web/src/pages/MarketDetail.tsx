@@ -141,9 +141,18 @@ export default function MarketDetailPage() {
     }
 
     const amountNum = parseFloat(amount);
-    const selectedOutcomeData = currentMarket?.outcomes.find(o => o.id === selectedOutcome);
+    if (!isFinite(amountNum) || amountNum <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
 
-    if (!selectedOutcomeData) return;
+    const outcomeData = currentMarket?.outcomes.find(o => o.id === selectedOutcome);
+    if (!outcomeData) return;
+
+    // Default to 0.5 if currentPrice is invalid
+    const outcomePrice = outcomeData.currentPrice > 0 && outcomeData.currentPrice < 1
+      ? outcomeData.currentPrice
+      : 0.5;
 
     let priceNum: number;
     let quantityNum: number;
@@ -151,17 +160,23 @@ export default function MarketDetailPage() {
     if (orderType === 'MARKET') {
       // Market order: buy at current price + small buffer
       priceNum = side === 'BUY'
-        ? Math.min(selectedOutcomeData.currentPrice + 0.02, 0.99)
-        : Math.max(selectedOutcomeData.currentPrice - 0.02, 0.01);
-      quantityNum = amountNum / selectedOutcomeData.currentPrice;
+        ? Math.min(outcomePrice + 0.02, 0.99)
+        : Math.max(outcomePrice - 0.02, 0.01);
+      quantityNum = amountNum / outcomePrice;
     } else {
       // Limit order
       priceNum = parseFloat(price) / 100;
-      if (priceNum < 0.01 || priceNum > 0.99) {
+      if (!isFinite(priceNum) || priceNum < 0.01 || priceNum > 0.99) {
         toast.error('Price must be between 1% and 99%');
         return;
       }
       quantityNum = amountNum / priceNum;
+    }
+
+    // Validate quantity
+    if (!isFinite(quantityNum) || quantityNum <= 0) {
+      toast.error('Invalid order quantity');
+      return;
     }
 
     setIsSubmitting(true);
