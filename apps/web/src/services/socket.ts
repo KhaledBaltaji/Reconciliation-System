@@ -4,6 +4,10 @@ import { useMarketStore } from '../stores/market';
 
 let socket: Socket | null = null;
 
+// Trade event callbacks
+type TradeCallback = (trade: { id: string; outcomeId: string; price: number; quantity: number; timestamp: Date }) => void;
+const tradeCallbacks: Map<string, Set<TradeCallback>> = new Map();
+
 export function initSocket() {
   if (socket) return socket;
 
@@ -35,7 +39,37 @@ export function initSocket() {
     useMarketStore.getState().fetchOrderBook(data.marketId, data.outcomeId);
   });
 
+  // Trade executed - broadcast to all listeners
+  socket.on('trade:executed', (trade: { id: string; outcomeId: string; price: number; quantity: number; timestamp: Date; marketId?: string }) => {
+    console.log('🔥 Trade executed:', trade);
+    // Notify all registered callbacks for this market
+    tradeCallbacks.forEach((callbacks, marketId) => {
+      if (!trade.marketId || trade.marketId === marketId) {
+        callbacks.forEach(cb => cb(trade));
+      }
+    });
+  });
+
   return socket;
+}
+
+// Subscribe to trade events for a specific market
+export function onTradeExecuted(marketId: string, callback: TradeCallback) {
+  if (!tradeCallbacks.has(marketId)) {
+    tradeCallbacks.set(marketId, new Set());
+  }
+  tradeCallbacks.get(marketId)!.add(callback);
+
+  // Return unsubscribe function
+  return () => {
+    const callbacks = tradeCallbacks.get(marketId);
+    if (callbacks) {
+      callbacks.delete(callback);
+      if (callbacks.size === 0) {
+        tradeCallbacks.delete(marketId);
+      }
+    }
+  };
 }
 
 export function getSocket() {

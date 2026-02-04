@@ -71,7 +71,7 @@ export function emitOrderBookUpdate(marketId: string, outcomeId: string) {
 
 export function emitTradeExecuted(
   marketId: string,
-  trade: { id: string; outcomeId: string; price: number; quantity: number; timestamp: Date }
+  trade: { id: string; marketId: string; outcomeId: string; price: number; quantity: number; timestamp: Date }
 ) {
   if (!io) return;
   io.to(`market:${marketId}`).emit('trade:executed', trade);

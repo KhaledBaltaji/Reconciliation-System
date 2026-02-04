@@ -249,6 +249,7 @@ async function executeTrade(
     // Emit WebSocket events
     emitTradeExecuted(incomingOrder.marketId, {
       id: trade.id,
+      marketId: incomingOrder.marketId,
       outcomeId: incomingOrder.outcomeId,
       price,
       quantity,
