@@ -15,20 +15,23 @@ export default function HomePage() {
     <div className="space-y-12">
       {/* Hero Section */}
       <section className="text-center py-12">
+        <div className="inline-block mb-4 px-4 py-1 bg-primary-500/20 rounded-full">
+          <span className="text-primary-400 text-sm font-medium">🇱🇧 Lebanon's First Prediction Market</span>
+        </div>
         <h1 className="text-4xl md:text-5xl font-bold mb-4">
-          Trade on{' '}
-          <span className="text-primary-500">Future Events</span>
+          Bet on{' '}
+          <span className="bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent">Future Events</span>
         </h1>
         <p className="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
-          The first regulated prediction market in Lebanon. Trade on sports, politics,
-          crypto, and more with real-time pricing.
+          Trade predictions on sports, politics, crypto, and more.
+          Simple betting for everyone, advanced trading for pros.
         </p>
         <div className="flex items-center justify-center gap-4">
           <Link to="/markets" className="btn-primary text-lg px-6 py-3">
-            Start Trading
+            Start Betting
           </Link>
           <Link to="/register" className="btn-secondary text-lg px-6 py-3">
-            Create Account
+            Get $10,000 Free
           </Link>
         </div>
       </section>

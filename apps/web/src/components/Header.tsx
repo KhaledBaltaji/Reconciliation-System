@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Home,
   TrendingUp,
@@ -9,6 +9,8 @@ import {
   LogOut,
   Settings,
   Menu,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/auth';
 import { useMarketStore } from '../stores/market';
@@ -17,25 +19,53 @@ export default function Header() {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
   const { categories, fetchCategories } = useMarketStore();
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') !== 'light';
+    }
+    return true;
+  });
 
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
   return (
-    <header className="bg-gray-800 border-b border-gray-700 sticky top-0 z-50">
+    <header className="bg-gray-800 dark:bg-gray-800 light:bg-white border-b border-gray-700 dark:border-gray-700 light:border-gray-200 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         {/* Main header */}
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <TrendingUp className="h-8 w-8 text-primary-500" />
-            <span className="text-xl font-bold">PredictMarket</span>
+            <div className="relative">
+              <TrendingUp className="h-8 w-8 text-primary-500" />
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-success-500 rounded-full animate-pulse"></span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xl font-bold bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent">
+                PredictArabia
+              </span>
+              <span className="text-[10px] text-gray-500 -mt-1">Prediction Markets</span>
+            </div>
           </Link>
 
           {/* Desktop Navigation */}
@@ -76,6 +106,19 @@ export default function Header() {
 
           {/* Right side */}
           <div className="flex items-center gap-4">
+            {/* Theme toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition"
+              title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {isDarkMode ? (
+                <Sun className="h-5 w-5 text-yellow-400" />
+              ) : (
+                <Moon className="h-5 w-5 text-gray-300" />
+              )}
+            </button>
+
             {isAuthenticated ? (
               <>
                 {/* Balance display */}

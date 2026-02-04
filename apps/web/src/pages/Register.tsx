@@ -125,8 +125,16 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <Link to="/" className="flex items-center justify-center gap-2 mb-8">
-          <TrendingUp className="h-10 w-10 text-primary-500" />
-          <span className="text-2xl font-bold">PredictMarket</span>
+          <div className="relative">
+            <TrendingUp className="h-10 w-10 text-primary-500" />
+            <span className="absolute -top-1 -right-1 w-3 h-3 bg-success-500 rounded-full animate-pulse"></span>
+          </div>
+          <div className="flex flex-col items-start">
+            <span className="text-2xl font-bold bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent">
+              PredictArabia
+            </span>
+            <span className="text-xs text-gray-500 -mt-1">Prediction Markets</span>
+          </div>
         </Link>
 
         <div className="card p-8">

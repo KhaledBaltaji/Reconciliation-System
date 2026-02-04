@@ -10,12 +10,12 @@ const paginationSchema = z.object({
 
 const depositSchema = z.object({
   amount: z.number().positive(),
-  methodId: z.string().uuid(),
+  methodId: z.string().min(1),
 });
 
 const withdrawSchema = z.object({
   amount: z.number().positive(),
-  methodId: z.string().uuid(),
+  methodId: z.string().min(1),
   destination: z.string().min(1), // bank account, wallet address, etc.
 });
 
