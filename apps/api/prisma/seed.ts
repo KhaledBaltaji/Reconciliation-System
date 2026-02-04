@@ -1,5 +1,11 @@
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load .env from monorepo root
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+
 import { PrismaClient, UserRole, MarketType, MarketStatus } from '@prisma/client';
-import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
