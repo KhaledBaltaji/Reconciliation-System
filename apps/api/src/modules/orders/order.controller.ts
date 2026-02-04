@@ -3,12 +3,12 @@ import { z } from 'zod';
 import * as orderService from './order.service.js';
 
 const placeOrderSchema = z.object({
-  marketId: z.string().uuid(),
-  outcomeId: z.string().uuid(),
+  marketId: z.string().min(1, 'Market ID is required'),
+  outcomeId: z.string().min(1, 'Outcome ID is required'),
   side: z.enum(['BUY', 'SELL']),
   orderType: z.enum(['LIMIT', 'MARKET']).default('LIMIT'),
   price: z.number().min(0.01).max(0.99),
-  quantity: z.number().min(1),
+  quantity: z.number().min(0.01), // Allow fractional contracts
 });
 
 const listOrdersSchema = z.object({
@@ -20,10 +20,15 @@ const listOrdersSchema = z.object({
 
 export async function placeOrder(req: Request, res: Response, next: NextFunction) {
   try {
+    console.log('📥 Order request body:', JSON.stringify(req.body, null, 2));
+
     const data = placeOrderSchema.parse(req.body);
+    console.log('✅ Validated order data:', data);
+
     const order = await orderService.placeOrder(req.user!.id, data);
     res.status(201).json({ success: true, data: order });
   } catch (error) {
+    console.error('❌ Order error:', error);
     next(error);
   }
 }
