@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { v4 as uuid } from 'uuid';
 import { prisma } from '../../lib/prisma.js';
-import { redis, CACHE_KEYS } from '../../lib/redis.js';
+import { cache, CACHE_KEYS } from '../../lib/redis.js';
 import { config, TRADING_CONFIG } from '../../config/index.js';
 import {
   ValidationError,
@@ -35,12 +35,12 @@ function generateTokens(userId: string, role: string) {
 }
 
 export async function sendOtp(phoneNumber: string) {
-  // Rate limiting check
+  // Rate limiting check (gracefully skipped if Redis unavailable)
   const attemptsKey = CACHE_KEYS.otpAttempts(phoneNumber);
-  const attempts = await redis.incr(attemptsKey);
+  const attempts = await cache.incr(attemptsKey);
 
   if (attempts === 1) {
-    await redis.expire(attemptsKey, 3600); // 1 hour window
+    await cache.expire(attemptsKey, 3600); // 1 hour window
   }
 
   if (attempts > 5) {
@@ -257,7 +257,7 @@ export async function refreshAccessToken(refreshToken: string) {
 export async function logout(userId: string, token: string) {
   // Invalidate session in Redis (if using session-based invalidation)
   const sessionKey = CACHE_KEYS.userSession(token);
-  await redis.del(sessionKey);
+  await cache.del(sessionKey);
 }
 
 export async function submitKyc(userId: string, documentUrl: string) {
