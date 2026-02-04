@@ -169,7 +169,7 @@ export default function PortfolioPage() {
                       <p className="text-sm text-gray-400">{position.outcome.name}</p>
                       <h3 className="font-semibold">{position.market.title}</h3>
                       <p className="text-sm text-gray-500 mt-1">
-                        {position.quantity} shares @ {(Number(position.avgEntryPrice) * 100).toFixed(1)}%
+                        {position.quantity} contracts @ {(Number(position.avgEntryPrice) * 100).toFixed(1)}%
                       </p>
                     </div>
                     <div className="text-right">

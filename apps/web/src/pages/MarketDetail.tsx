@@ -391,7 +391,7 @@ export default function MarketDetailPage() {
                     <div key={trade.id} className="flex justify-between text-sm py-1 border-b border-gray-700 last:border-0">
                       <span className="text-gray-400">{trade.outcome.name}</span>
                       <span className="font-mono">{(trade.price * 100).toFixed(1)}%</span>
-                      <span className="text-gray-400">{Number(trade.quantity).toFixed(2)} shares</span>
+                      <span className="text-gray-400">{Number(trade.quantity).toFixed(2)} contracts</span>
                     </div>
                   ))}
                 </div>
@@ -522,7 +522,7 @@ export default function MarketDetailPage() {
                 <span className="font-mono">${amountNum.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400">Shares</span>
+                <span className="text-gray-400">Contracts</span>
                 <span className="font-mono">{quantity.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">

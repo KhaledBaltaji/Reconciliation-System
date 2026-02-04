@@ -253,8 +253,8 @@ export default function SimpleBetting({ marketId, title, outcomes, onBetPlaced }
       <div className="flex items-start gap-2 text-xs text-gray-500">
         <Info className="h-4 w-4 shrink-0 mt-0.5" />
         <span>
-          Your bet is matched against other traders. If your prediction is correct when the
-          market resolves, you win the payout. A 2.5% fee applies on entry and exit.
+          Your bet is matched against other players. When the outcome is decided,
+          if you're right, you win! A 2.5% fee applies on entry and exit.
         </span>
       </div>
     </div>

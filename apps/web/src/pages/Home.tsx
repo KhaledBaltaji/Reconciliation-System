@@ -62,7 +62,7 @@ export default function HomePage() {
           </div>
           <h3 className="text-lg font-semibold mb-2">Instant Settlement</h3>
           <p className="text-gray-400 text-sm">
-            Get paid instantly when markets resolve in your favor.
+            Get paid instantly when you win. No waiting around!
           </p>
         </div>
       </section>
