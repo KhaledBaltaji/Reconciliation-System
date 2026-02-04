@@ -116,16 +116,30 @@ export default function SimpleBetting({ marketId, title, outcomes, onBetPlaced }
       return;
     }
 
+    // Validate UUIDs
+    if (!marketId || marketId.length < 10) {
+      toast.error('Invalid market');
+      return;
+    }
+    if (!selectedOutcome || selectedOutcome.length < 10) {
+      toast.error('Please select an outcome');
+      return;
+    }
+
+    const orderData = {
+      marketId,
+      outcomeId: selectedOutcome,
+      side: 'BUY' as const,
+      price: orderPrice,
+      quantity: orderQuantity,
+    };
+
+    console.log('📤 Placing order:', orderData);
+
     setIsSubmitting(true);
     try {
       // Place a market order (buy at current price)
-      await ordersApi.place({
-        marketId,
-        outcomeId: selectedOutcome,
-        side: 'BUY',
-        price: orderPrice,
-        quantity: orderQuantity,
-      });
+      await ordersApi.place(orderData);
 
       toast.success(`Bet placed! Good luck!`);
       setSelectedOutcome(null);
