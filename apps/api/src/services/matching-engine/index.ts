@@ -18,7 +18,8 @@ async function getOrCreateHouseAccount() {
         phoneNumber: HOUSE_USER_PHONE,
         fullName: 'PredictArabia House',
         role: 'ADMIN',
-        isVerified: true,
+        kycStatus: 'APPROVED',
+        isActive: true,
         wallet: {
           create: {
             balanceUsd: 1000000000, // $1B house liquidity
