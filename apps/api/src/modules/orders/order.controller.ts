@@ -145,24 +145,33 @@ export async function getQuote(req: Request, res: Response, next: NextFunction) 
  */
 export async function placeOrder(req: Request, res: Response, next: NextFunction) {
   try {
-    const { side, ...rest } = req.body;
+    console.log('📥 Legacy order request:', JSON.stringify(req.body, null, 2));
+
+    const { side, marketId, outcomeId, amount, price, quantity, shares } = req.body;
 
     // Redirect to appropriate AMM endpoint
     if (side === 'SELL') {
       // For sell, convert quantity to shares
       req.body = {
-        marketId: rest.marketId,
-        outcomeId: rest.outcomeId,
-        shares: rest.quantity || rest.shares,
+        marketId,
+        outcomeId,
+        shares: shares || quantity || 1,
       };
       return sellShares(req, res, next);
     } else {
-      // For buy, use amount or calculate from price * quantity
-      const amount = rest.amount || (rest.price * rest.quantity);
+      // For buy, use amount directly or calculate from price * quantity
+      let buyAmount = amount;
+      if (!buyAmount && price && quantity) {
+        buyAmount = price * quantity;
+      }
+      if (!buyAmount || isNaN(buyAmount)) {
+        buyAmount = 10; // Default $10 if nothing specified
+      }
+
       req.body = {
-        marketId: rest.marketId,
-        outcomeId: rest.outcomeId,
-        amount,
+        marketId,
+        outcomeId,
+        amount: buyAmount,
       };
       return buyShares(req, res, next);
     }
