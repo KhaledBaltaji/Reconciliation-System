@@ -58,12 +58,22 @@ export async function buyShares(params: BuyParams): Promise<TradeResult> {
     throw new Error('Market is not open for trading');
   }
 
+  // Get liquidity parameter - use default if not set
+  // Default: $10,000 max exposure for binary market = b ≈ 14,427
+  let liquidityParam = Number(market.liquidityParam);
+  if (!liquidityParam || !isFinite(liquidityParam) || liquidityParam <= 0) {
+    const numOutcomes = market.outcomes.length;
+    const defaultMaxExposure = numOutcomes === 2 ? 10000 : 25000;
+    liquidityParam = defaultMaxExposure / Math.log(numOutcomes);
+    console.log(`⚠️ Market ${marketId} missing liquidityParam, using default: ${liquidityParam.toFixed(2)}`);
+  }
+
   // Create AMM state
   const ammState = createAMMState(
-    Number(market.liquidityParam),
+    liquidityParam,
     market.outcomes.map(o => ({
       id: o.id,
-      sharesOutstanding: Number(o.sharesOutstanding),
+      sharesOutstanding: Number(o.sharesOutstanding) || 0,
     }))
   );
 
@@ -262,12 +272,20 @@ export async function sellShares(params: SellParams): Promise<TradeResult> {
     throw new Error('Market is not open for trading');
   }
 
+  // Get liquidity parameter - use default if not set
+  let liquidityParam = Number(market.liquidityParam);
+  if (!liquidityParam || !isFinite(liquidityParam) || liquidityParam <= 0) {
+    const numOutcomes = market.outcomes.length;
+    const defaultMaxExposure = numOutcomes === 2 ? 10000 : 25000;
+    liquidityParam = defaultMaxExposure / Math.log(numOutcomes);
+  }
+
   // Create AMM state
   const ammState = createAMMState(
-    Number(market.liquidityParam),
+    liquidityParam,
     market.outcomes.map(o => ({
       id: o.id,
-      sharesOutstanding: Number(o.sharesOutstanding),
+      sharesOutstanding: Number(o.sharesOutstanding) || 0,
     }))
   );
 
@@ -461,11 +479,19 @@ export async function getBuyQuote(marketId: string, outcomeId: string, amount: n
     throw new Error('Market not found');
   }
 
+  // Get liquidity parameter with default fallback
+  let liquidityParam = Number(market.liquidityParam);
+  if (!liquidityParam || !isFinite(liquidityParam) || liquidityParam <= 0) {
+    const numOutcomes = market.outcomes.length;
+    const defaultMaxExposure = numOutcomes === 2 ? 10000 : 25000;
+    liquidityParam = defaultMaxExposure / Math.log(numOutcomes);
+  }
+
   const ammState = createAMMState(
-    Number(market.liquidityParam),
+    liquidityParam,
     market.outcomes.map(o => ({
       id: o.id,
-      sharesOutstanding: Number(o.sharesOutstanding),
+      sharesOutstanding: Number(o.sharesOutstanding) || 0,
     }))
   );
 
@@ -497,11 +523,19 @@ export async function getSellQuote(marketId: string, outcomeId: string, shares: 
     throw new Error('Market not found');
   }
 
+  // Get liquidity parameter with default fallback
+  let liquidityParam = Number(market.liquidityParam);
+  if (!liquidityParam || !isFinite(liquidityParam) || liquidityParam <= 0) {
+    const numOutcomes = market.outcomes.length;
+    const defaultMaxExposure = numOutcomes === 2 ? 10000 : 25000;
+    liquidityParam = defaultMaxExposure / Math.log(numOutcomes);
+  }
+
   const ammState = createAMMState(
-    Number(market.liquidityParam),
+    liquidityParam,
     market.outcomes.map(o => ({
       id: o.id,
-      sharesOutstanding: Number(o.sharesOutstanding),
+      sharesOutstanding: Number(o.sharesOutstanding) || 0,
     }))
   );
 
