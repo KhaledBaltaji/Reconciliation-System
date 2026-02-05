@@ -149,23 +149,40 @@ export async function placeOrder(req: Request, res: Response, next: NextFunction
 
     const { side, marketId, outcomeId, amount, price, quantity, shares } = req.body;
 
+    // Validate required fields
+    if (!marketId || !outcomeId) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Market ID and Outcome ID are required' },
+      });
+    }
+
     // Redirect to appropriate AMM endpoint
     if (side === 'SELL') {
       // For sell, convert quantity to shares
+      const sellShares = Number(shares) || Number(quantity) || 1;
       req.body = {
         marketId,
         outcomeId,
-        shares: shares || quantity || 1,
+        shares: sellShares,
       };
+      console.log('📤 Redirecting to AMM sell:', req.body);
       return sellShares(req, res, next);
     } else {
       // For buy, use amount directly or calculate from price * quantity
-      let buyAmount = amount;
-      if (!buyAmount && price && quantity) {
-        buyAmount = price * quantity;
+      let buyAmount = Number(amount);
+
+      if (!buyAmount || !isFinite(buyAmount)) {
+        const priceNum = Number(price);
+        const quantityNum = Number(quantity);
+        if (priceNum > 0 && quantityNum > 0) {
+          buyAmount = priceNum * quantityNum;
+        }
       }
-      if (!buyAmount || isNaN(buyAmount)) {
-        buyAmount = 10; // Default $10 if nothing specified
+
+      // Final fallback
+      if (!buyAmount || !isFinite(buyAmount) || buyAmount < 1) {
+        buyAmount = 10; // Default $10
       }
 
       req.body = {
@@ -173,6 +190,7 @@ export async function placeOrder(req: Request, res: Response, next: NextFunction
         outcomeId,
         amount: buyAmount,
       };
+      console.log('📤 Redirecting to AMM buy:', req.body);
       return buyShares(req, res, next);
     }
   } catch (error) {
