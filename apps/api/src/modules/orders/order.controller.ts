@@ -7,12 +7,19 @@ const placeOrderSchema = z.object({
   outcomeId: z.string().min(1, 'Outcome ID is required'),
   side: z.enum(['BUY', 'SELL']),
   orderType: z.enum(['LIMIT', 'MARKET']).default('LIMIT'),
-  price: z.number().min(0.01).max(0.99),
-  quantity: z.number().min(0.01), // Allow fractional contracts
+  // Use preprocess to handle string numbers and null values
+  price: z.preprocess(
+    (val) => (val === null || val === undefined ? undefined : Number(val)),
+    z.number().min(0.01).max(0.99)
+  ),
+  quantity: z.preprocess(
+    (val) => (val === null || val === undefined ? undefined : Number(val)),
+    z.number().min(0.01)
+  ),
 });
 
 const listOrdersSchema = z.object({
-  marketId: z.string().uuid().optional(),
+  marketId: z.string().min(1).optional(),
   status: z.enum(['OPEN', 'PARTIAL', 'FILLED', 'CANCELLED']).optional(),
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(100).default(20),
