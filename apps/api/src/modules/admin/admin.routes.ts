@@ -12,6 +12,7 @@ adminRouter.use(requireAdmin);
 adminRouter.get('/stats', adminController.getDashboardStats);
 
 // Market management
+adminRouter.get('/markets', adminController.listMarkets);
 adminRouter.post('/markets', adminController.createMarket);
 adminRouter.put('/markets/:id', adminController.updateMarket);
 adminRouter.post('/markets/:id/open', adminController.openMarket);

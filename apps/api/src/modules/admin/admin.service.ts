@@ -41,6 +41,41 @@ export async function getDashboardStats() {
 }
 
 // Market management
+export async function listAllMarkets(params: PaginationParams) {
+  const { page, limit, status } = params;
+
+  const where = {
+    ...(status && { status: status as MarketStatus }),
+  };
+
+  const [markets, total] = await Promise.all([
+    prisma.market.findMany({
+      where,
+      include: {
+        category: { select: { id: true, name: true, slug: true } },
+        outcomes: {
+          orderBy: { displayOrder: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            currentPrice: true,
+            totalVolume: true,
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }],
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.market.count({ where }),
+  ]);
+
+  return {
+    markets,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
+}
+
 export async function createMarket(data: {
   categoryId: string;
   title: string;
@@ -84,7 +119,7 @@ export async function createMarket(data: {
 
 export async function updateMarket(
   marketId: string,
-  data: { title?: string; description?: string; expiresAt?: string; imageUrl?: string },
+  data: { title?: string; description?: string; expiresAt?: string; imageUrl?: string; maxExposure?: number; liquidityParam?: number },
   adminId: string
 ) {
   const market = await prisma.market.findUnique({ where: { id: marketId } });
@@ -97,11 +132,12 @@ export async function updateMarket(
     throw new ValidationError('Cannot update resolved market');
   }
 
+  const { expiresAt, ...restData } = data;
   const updated = await prisma.market.update({
     where: { id: marketId },
     data: {
-      ...data,
-      ...(data.expiresAt && { expiresAt: new Date(data.expiresAt) }),
+      ...restData,
+      ...(expiresAt && { expiresAt: new Date(expiresAt) }),
     },
     include: { outcomes: true, category: true },
   });

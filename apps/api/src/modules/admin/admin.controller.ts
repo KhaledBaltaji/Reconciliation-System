@@ -17,6 +17,8 @@ const updateMarketSchema = z.object({
   description: z.string().optional(),
   expiresAt: z.string().datetime().optional(),
   imageUrl: z.string().url().optional(),
+  maxExposure: z.number().positive().optional(),
+  liquidityParam: z.number().positive().optional(),
 });
 
 const resolveMarketSchema = z.object({
@@ -53,6 +55,16 @@ export async function getDashboardStats(req: Request, res: Response, next: NextF
 }
 
 // Markets
+export async function listMarkets(req: Request, res: Response, next: NextFunction) {
+  try {
+    const params = paginationSchema.parse(req.query);
+    const markets = await adminService.listAllMarkets(params);
+    res.json({ success: true, data: markets });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function createMarket(req: Request, res: Response, next: NextFunction) {
   try {
     const data = createMarketSchema.parse(req.body);

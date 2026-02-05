@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Play, Pause, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Play, CheckCircle, Edit, DollarSign } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
-import { marketsApi, adminApi } from '../../services/api';
+import { adminApi } from '../../services/api';
 
 interface Market {
   id: string;
@@ -11,6 +11,8 @@ interface Market {
   status: string;
   expiresAt: string;
   totalVolume: number;
+  maxExposure?: number;
+  liquidityParam?: number;
   category: { name: string };
   outcomes: { id: string; name: string; currentPrice: number }[];
 }
@@ -19,6 +21,9 @@ export default function AdminMarkets() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [resolveModal, setResolveModal] = useState<Market | null>(null);
+  const [editModal, setEditModal] = useState<Market | null>(null);
+  const [editMaxExposure, setEditMaxExposure] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     loadMarkets();
@@ -27,7 +32,7 @@ export default function AdminMarkets() {
   const loadMarkets = async () => {
     setIsLoading(true);
     try {
-      const res = await marketsApi.list({ page: 1 });
+      const res = await adminApi.getMarkets({ page: 1 });
       setMarkets(res.data.data.markets);
     } catch (error) {
       toast.error('Failed to load markets');
@@ -54,6 +59,41 @@ export default function AdminMarkets() {
       loadMarkets();
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || 'Failed to resolve market');
+    }
+  };
+
+  const handleOpenEdit = (market: Market) => {
+    setEditModal(market);
+    setEditMaxExposure(market.maxExposure?.toString() || '10000');
+  };
+
+  const handleUpdateMarket = async () => {
+    if (!editModal) return;
+
+    const maxExposure = parseFloat(editMaxExposure);
+    if (!isFinite(maxExposure) || maxExposure <= 0) {
+      toast.error('Max exposure must be a positive number');
+      return;
+    }
+
+    // Calculate liquidity param based on number of outcomes
+    // For LMSR: b = maxExposure / ln(numOutcomes)
+    const numOutcomes = editModal.outcomes.length;
+    const liquidityParam = maxExposure / Math.log(numOutcomes);
+
+    setIsUpdating(true);
+    try {
+      await adminApi.updateMarket(editModal.id, {
+        maxExposure,
+        liquidityParam,
+      });
+      toast.success('Market updated! Max exposure is now $' + maxExposure.toLocaleString());
+      setEditModal(null);
+      loadMarkets();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Failed to update market');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -97,6 +137,7 @@ export default function AdminMarkets() {
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Market</th>
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Status</th>
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Volume</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Max Exposure</th>
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Expires</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-300">Actions</th>
             </tr>
@@ -114,11 +155,23 @@ export default function AdminMarkets() {
                 <td className="px-4 py-4 font-mono">
                   ${Number(market.totalVolume).toLocaleString()}
                 </td>
+                <td className="px-4 py-4 font-mono text-sm">
+                  ${Number(market.maxExposure || 10000).toLocaleString()}
+                </td>
                 <td className="px-4 py-4 text-sm text-gray-400">
                   {formatDistanceToNow(new Date(market.expiresAt), { addSuffix: true })}
                 </td>
                 <td className="px-4 py-4 text-right">
                   <div className="flex items-center justify-end gap-2">
+                    {market.status !== 'RESOLVED' && (
+                      <button
+                        onClick={() => handleOpenEdit(market)}
+                        className="p-2 text-gray-400 hover:bg-gray-500/20 rounded"
+                        title="Edit Market Settings"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                    )}
                     {market.status === 'DRAFT' && (
                       <button
                         onClick={() => handleOpenMarket(market.id)}
@@ -144,6 +197,82 @@ export default function AdminMarkets() {
           </tbody>
         </table>
       </div>
+
+      {/* Edit Modal */}
+      {editModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-2">Edit Market Settings</h2>
+            <p className="text-gray-400 text-sm mb-6">{editModal.title}</p>
+
+            <div className="space-y-4">
+              {/* Max Exposure */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-2 flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Max Exposure (House Risk Limit)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    value={editMaxExposure}
+                    onChange={(e) => setEditMaxExposure(e.target.value)}
+                    className="input pl-8"
+                    min="1000"
+                    step="1000"
+                    placeholder="10000"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Maximum loss the house can take on this market. Higher = more liquidity for traders.
+                </p>
+              </div>
+
+              {/* Calculated Liquidity Param */}
+              <div className="bg-gray-700/50 rounded-lg p-3">
+                <p className="text-sm text-gray-400 mb-1">Calculated Liquidity Parameter (b)</p>
+                <p className="font-mono text-lg">
+                  {(parseFloat(editMaxExposure || '0') / Math.log(editModal.outcomes.length)).toFixed(2)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Formula: b = maxExposure / ln({editModal.outcomes.length} outcomes)
+                </p>
+              </div>
+
+              {/* Current Prices */}
+              <div className="bg-gray-700/50 rounded-lg p-3">
+                <p className="text-sm text-gray-400 mb-2">Current Prices</p>
+                <div className="space-y-1">
+                  {editModal.outcomes.map((outcome) => (
+                    <div key={outcome.id} className="flex justify-between text-sm">
+                      <span>{outcome.name}</span>
+                      <span className="font-mono">{(outcome.currentPrice * 100).toFixed(1)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setEditModal(null)}
+                className="btn-secondary flex-1"
+                disabled={isUpdating}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateMarket}
+                className="btn-primary flex-1"
+                disabled={isUpdating}
+              >
+                {isUpdating ? 'Updating...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Resolve Modal */}
       {resolveModal && (

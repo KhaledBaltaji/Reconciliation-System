@@ -129,6 +129,8 @@ export const walletApi = {
 // Admin API
 export const adminApi = {
   getStats: () => api.get('/admin/stats'),
+  getMarkets: (params?: { page?: number; status?: string }) =>
+    api.get('/admin/markets', { params }),
   createMarket: (data: any) => api.post('/admin/markets', data),
   updateMarket: (id: string, data: any) => api.put(`/admin/markets/${id}`, data),
   openMarket: (id: string) => api.post(`/admin/markets/${id}/open`),
