@@ -101,47 +101,34 @@ export default function SimpleBetting({ marketId, title, outcomes, onBetPlaced }
       return;
     }
 
-    // Get current price, default to 0.5 if not available
-    const currentPrice = selectedOutcomeData?.currentPrice || 0.5;
-    if (currentPrice <= 0 || currentPrice >= 1) {
-      toast.error('Invalid price. Please try again.');
+    if (amount < 1) {
+      toast.error('Minimum bet is $1');
       return;
     }
 
-    const orderPrice = Math.min(currentPrice + 0.02, 0.99); // Cap at 99%
-    const orderQuantity = amount / currentPrice;
-
-    if (!isFinite(orderQuantity) || orderQuantity <= 0) {
-      toast.error('Invalid bet amount');
-      return;
-    }
-
-    // Validate UUIDs
-    if (!marketId || marketId.length < 10) {
+    // Validate IDs
+    if (!marketId || marketId.length < 5) {
       toast.error('Invalid market');
       return;
     }
-    if (!selectedOutcome || selectedOutcome.length < 10) {
+    if (!selectedOutcome || selectedOutcome.length < 5) {
       toast.error('Please select an outcome');
       return;
     }
 
-    const orderData = {
-      marketId,
-      outcomeId: selectedOutcome,
-      side: 'BUY' as const,
-      price: orderPrice,
-      quantity: orderQuantity,
-    };
-
-    console.log('📤 Placing order:', orderData);
+    console.log('📤 Placing AMM bet:', { marketId, outcomeId: selectedOutcome, amount });
 
     setIsSubmitting(true);
     try {
-      // Place a market order (buy at current price)
-      await ordersApi.place(orderData);
+      // Use AMM buy endpoint - just specify amount!
+      const result = await ordersApi.buy({
+        marketId,
+        outcomeId: selectedOutcome,
+        amount,
+      });
 
-      toast.success(`Bet placed! Good luck!`);
+      const shares = result.data.data?.shares?.toFixed(2) || '';
+      toast.success(`Bet placed! You got ${shares} shares. Good luck!`);
       setSelectedOutcome(null);
       setAmount(10);
 
@@ -172,20 +159,17 @@ export default function SimpleBetting({ marketId, title, outcomes, onBetPlaced }
 
     setClosingPosition(position.id);
     try {
-      const outcome = outcomes.find(o => o.id === position.outcomeId);
-      const currentPrice = outcome?.currentPrice || 0.5;
-      const sellPrice = Math.max(currentPrice - 0.02, 0.01);
+      console.log('📤 Closing position via AMM sell:', { marketId, outcomeId: position.outcomeId, shares: positionQty });
 
-      // Sell at slightly below market to ensure fill
-      await ordersApi.place({
+      // Use AMM sell endpoint - sell all shares
+      const result = await ordersApi.sell({
         marketId,
         outcomeId: position.outcomeId,
-        side: 'SELL',
-        price: sellPrice,
-        quantity: positionQty,
+        shares: positionQty,
       });
 
-      toast.success('Position closed!');
+      const proceeds = result.data.data?.proceeds?.toFixed(2) || '0';
+      toast.success(`Position closed! You received $${proceeds}`);
 
       // Refresh positions and balance
       checkAuth();

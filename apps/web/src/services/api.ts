@@ -79,15 +79,35 @@ export const marketsApi = {
     api.get(`/markets/${id}/chart/${outcomeId}`, { params }),
 };
 
-// Orders API
+// Orders API (AMM-based)
 export const ordersApi = {
+  // Buy shares with amount
+  buy: (data: { marketId: string; outcomeId: string; amount: number }) =>
+    api.post('/orders/buy', data),
+
+  // Sell shares
+  sell: (data: { marketId: string; outcomeId: string; shares: number }) =>
+    api.post('/orders/sell', data),
+
+  // Get quote before trade
+  getQuote: (params: {
+    marketId: string;
+    outcomeId: string;
+    side: 'BUY' | 'SELL';
+    amount?: number;
+    shares?: number;
+  }) => api.get('/orders/quote', { params }),
+
+  // Legacy: place order (redirects to buy/sell)
   place: (data: {
     marketId: string;
     outcomeId: string;
     side: 'BUY' | 'SELL';
-    price: number;
-    quantity: number;
+    price?: number;
+    quantity?: number;
+    amount?: number;
   }) => api.post('/orders', data),
+
   list: (params?: { marketId?: string; status?: string }) =>
     api.get('/orders', { params }),
   cancel: (id: string) => api.delete(`/orders/${id}`),

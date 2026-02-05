@@ -84,10 +84,21 @@ async function main() {
   const cryptoCategory = categories.find(c => c.slug === 'crypto')!;
   const politicsCategory = categories.find(c => c.slug === 'politics')!;
 
+  // LMSR AMM Parameters:
+  // For binary markets (2 outcomes): b = maxExposure / ln(2) ≈ maxExposure * 1.4427
+  // For 5 outcomes: b = maxExposure / ln(5) ≈ maxExposure * 0.6213
+  const BINARY_MAX_EXPOSURE = 10000; // $10,000 max loss per binary market
+  const MULTI_MAX_EXPOSURE = 25000;  // $25,000 max loss per multi-choice market
+  const BINARY_LIQUIDITY_PARAM = BINARY_MAX_EXPOSURE / Math.log(2); // ~14,427
+  const MULTI_LIQUIDITY_PARAM = MULTI_MAX_EXPOSURE / Math.log(5);   // ~15,537
+
   // Binary market example
   const binaryMarket = await prisma.market.upsert({
     where: { id: 'sample-binary-market' },
-    update: {},
+    update: {
+      liquidityParam: BINARY_LIQUIDITY_PARAM,
+      maxExposure: BINARY_MAX_EXPOSURE,
+    },
     create: {
       id: 'sample-binary-market',
       categoryId: sportsCategory.id,
@@ -97,10 +108,12 @@ async function main() {
       status: MarketStatus.OPEN,
       expiresAt: new Date('2026-06-01'),
       createdById: admin.id,
+      liquidityParam: BINARY_LIQUIDITY_PARAM,
+      maxExposure: BINARY_MAX_EXPOSURE,
       outcomes: {
         create: [
-          { name: 'Yes', displayOrder: 0, currentPrice: 0.15 },
-          { name: 'No', displayOrder: 1, currentPrice: 0.85 },
+          { name: 'Yes', displayOrder: 0, currentPrice: 0.50, sharesOutstanding: 0 },
+          { name: 'No', displayOrder: 1, currentPrice: 0.50, sharesOutstanding: 0 },
         ],
       },
     },
@@ -109,7 +122,10 @@ async function main() {
   // Multiple choice market example
   const multipleChoiceMarket = await prisma.market.upsert({
     where: { id: 'sample-multi-market' },
-    update: {},
+    update: {
+      liquidityParam: MULTI_LIQUIDITY_PARAM,
+      maxExposure: MULTI_MAX_EXPOSURE,
+    },
     create: {
       id: 'sample-multi-market',
       categoryId: cryptoCategory.id,
@@ -119,13 +135,15 @@ async function main() {
       status: MarketStatus.OPEN,
       expiresAt: new Date('2026-12-31'),
       createdById: admin.id,
+      liquidityParam: MULTI_LIQUIDITY_PARAM,
+      maxExposure: MULTI_MAX_EXPOSURE,
       outcomes: {
         create: [
-          { name: 'Below $50,000', displayOrder: 0, currentPrice: 0.10 },
-          { name: '$50,000 - $100,000', displayOrder: 1, currentPrice: 0.25 },
-          { name: '$100,000 - $150,000', displayOrder: 2, currentPrice: 0.35 },
-          { name: '$150,000 - $200,000', displayOrder: 3, currentPrice: 0.20 },
-          { name: 'Above $200,000', displayOrder: 4, currentPrice: 0.10 },
+          { name: 'Below $50,000', displayOrder: 0, currentPrice: 0.20, sharesOutstanding: 0 },
+          { name: '$50,000 - $100,000', displayOrder: 1, currentPrice: 0.20, sharesOutstanding: 0 },
+          { name: '$100,000 - $150,000', displayOrder: 2, currentPrice: 0.20, sharesOutstanding: 0 },
+          { name: '$150,000 - $200,000', displayOrder: 3, currentPrice: 0.20, sharesOutstanding: 0 },
+          { name: 'Above $200,000', displayOrder: 4, currentPrice: 0.20, sharesOutstanding: 0 },
         ],
       },
     },
@@ -134,7 +152,10 @@ async function main() {
   // Politics market
   const politicsMarket = await prisma.market.upsert({
     where: { id: 'sample-politics-market' },
-    update: {},
+    update: {
+      liquidityParam: BINARY_LIQUIDITY_PARAM,
+      maxExposure: BINARY_MAX_EXPOSURE,
+    },
     create: {
       id: 'sample-politics-market',
       categoryId: politicsCategory.id,
@@ -144,10 +165,12 @@ async function main() {
       status: MarketStatus.OPEN,
       expiresAt: new Date('2026-03-31'),
       createdById: admin.id,
+      liquidityParam: BINARY_LIQUIDITY_PARAM,
+      maxExposure: BINARY_MAX_EXPOSURE,
       outcomes: {
         create: [
-          { name: 'Yes', displayOrder: 0, currentPrice: 0.45 },
-          { name: 'No', displayOrder: 1, currentPrice: 0.55 },
+          { name: 'Yes', displayOrder: 0, currentPrice: 0.50, sharesOutstanding: 0 },
+          { name: 'No', displayOrder: 1, currentPrice: 0.50, sharesOutstanding: 0 },
         ],
       },
     },

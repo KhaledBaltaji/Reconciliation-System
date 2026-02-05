@@ -1,21 +1,35 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import * as ammTrade from '../../services/amm/trade.js';
 import * as orderService from './order.service.js';
 
-const placeOrderSchema = z.object({
+// AMM Buy - spend amount to buy shares
+const buySchema = z.object({
   marketId: z.string().min(1, 'Market ID is required'),
   outcomeId: z.string().min(1, 'Outcome ID is required'),
+  amount: z.preprocess(
+    (val) => (val === null || val === undefined ? undefined : Number(val)),
+    z.number().min(1, 'Minimum bet is $1')
+  ),
+});
+
+// AMM Sell - sell shares
+const sellSchema = z.object({
+  marketId: z.string().min(1, 'Market ID is required'),
+  outcomeId: z.string().min(1, 'Outcome ID is required'),
+  shares: z.preprocess(
+    (val) => (val === null || val === undefined ? undefined : Number(val)),
+    z.number().min(0.01, 'Minimum shares is 0.01')
+  ),
+});
+
+// Quote request
+const quoteSchema = z.object({
+  marketId: z.string().min(1),
+  outcomeId: z.string().min(1),
+  amount: z.coerce.number().optional(),
+  shares: z.coerce.number().optional(),
   side: z.enum(['BUY', 'SELL']),
-  orderType: z.enum(['LIMIT', 'MARKET']).default('LIMIT'),
-  // Use preprocess to handle string numbers and null values
-  price: z.preprocess(
-    (val) => (val === null || val === undefined ? undefined : Number(val)),
-    z.number().min(0.01).max(0.99)
-  ),
-  quantity: z.preprocess(
-    (val) => (val === null || val === undefined ? undefined : Number(val)),
-    z.number().min(0.01)
-  ),
 });
 
 const listOrdersSchema = z.object({
@@ -25,17 +39,134 @@ const listOrdersSchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(20),
 });
 
+/**
+ * Buy shares using AMM
+ * POST /api/orders/buy
+ */
+export async function buyShares(req: Request, res: Response, next: NextFunction) {
+  try {
+    console.log('📥 Buy request:', JSON.stringify(req.body, null, 2));
+
+    const data = buySchema.parse(req.body);
+
+    const result = await ammTrade.buyShares({
+      userId: req.user!.id,
+      marketId: data.marketId,
+      outcomeId: data.outcomeId,
+      amount: data.amount,
+    });
+
+    console.log('✅ Buy executed:', result);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        tradeId: result.tradeId,
+        shares: result.shares,
+        cost: result.cost,
+        fee: result.fee,
+        totalCost: result.cost + result.fee,
+        avgPrice: result.avgPrice,
+        newPrice: result.newPrice,
+      },
+    });
+  } catch (error: any) {
+    console.error('❌ Buy error:', error.message);
+    next(error);
+  }
+}
+
+/**
+ * Sell shares using AMM
+ * POST /api/orders/sell
+ */
+export async function sellShares(req: Request, res: Response, next: NextFunction) {
+  try {
+    console.log('📥 Sell request:', JSON.stringify(req.body, null, 2));
+
+    const data = sellSchema.parse(req.body);
+
+    const result = await ammTrade.sellShares({
+      userId: req.user!.id,
+      marketId: data.marketId,
+      outcomeId: data.outcomeId,
+      shares: data.shares,
+    });
+
+    console.log('✅ Sell executed:', result);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        tradeId: result.tradeId,
+        shares: result.shares,
+        proceeds: result.cost,
+        fee: result.fee,
+        netProceeds: result.cost - result.fee,
+        avgPrice: result.avgPrice,
+        newPrice: result.newPrice,
+      },
+    });
+  } catch (error: any) {
+    console.error('❌ Sell error:', error.message);
+    next(error);
+  }
+}
+
+/**
+ * Get quote for buy/sell
+ * GET /api/orders/quote
+ */
+export async function getQuote(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = quoteSchema.parse(req.query);
+
+    let quote;
+    if (data.side === 'BUY' && data.amount) {
+      quote = await ammTrade.getBuyQuote(data.marketId, data.outcomeId, data.amount);
+    } else if (data.side === 'SELL' && data.shares) {
+      quote = await ammTrade.getSellQuote(data.marketId, data.outcomeId, data.shares);
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Provide amount for BUY or shares for SELL' },
+      });
+    }
+
+    res.json({ success: true, data: quote });
+  } catch (error: any) {
+    next(error);
+  }
+}
+
+/**
+ * Legacy: Place order (redirects to buy)
+ * POST /api/orders
+ */
 export async function placeOrder(req: Request, res: Response, next: NextFunction) {
   try {
-    console.log('📥 Order request body:', JSON.stringify(req.body, null, 2));
+    const { side, ...rest } = req.body;
 
-    const data = placeOrderSchema.parse(req.body);
-    console.log('✅ Validated order data:', data);
-
-    const order = await orderService.placeOrder(req.user!.id, data);
-    res.status(201).json({ success: true, data: order });
+    // Redirect to appropriate AMM endpoint
+    if (side === 'SELL') {
+      // For sell, convert quantity to shares
+      req.body = {
+        marketId: rest.marketId,
+        outcomeId: rest.outcomeId,
+        shares: rest.quantity || rest.shares,
+      };
+      return sellShares(req, res, next);
+    } else {
+      // For buy, use amount or calculate from price * quantity
+      const amount = rest.amount || (rest.price * rest.quantity);
+      req.body = {
+        marketId: rest.marketId,
+        outcomeId: rest.outcomeId,
+        amount,
+      };
+      return buyShares(req, res, next);
+    }
   } catch (error) {
-    console.error('❌ Order error:', error);
     next(error);
   }
 }
