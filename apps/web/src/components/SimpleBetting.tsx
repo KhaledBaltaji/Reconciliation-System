@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Info, TrendingUp, Users, X, Clock, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Info, TrendingUp, Users, X, Clock, ArrowUpRight, ArrowDownRight, LineChart } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatDistanceToNow } from 'date-fns';
+import { createChart, IChartApi, ISeriesApi, LineData } from 'lightweight-charts';
 import { ordersApi, marketsApi } from '../services/api';
 import { useAuthStore } from '../stores/auth';
 import { onTradeExecuted } from '../services/socket';
@@ -47,6 +48,12 @@ export default function SimpleBetting({ marketId, title, outcomes, onBetPlaced }
   const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
   const [userPositions, setUserPositions] = useState<Position[]>([]);
   const [closingPosition, setClosingPosition] = useState<string | null>(null);
+  const [chartData, setChartData] = useState<LineData[]>([]);
+
+  // Chart refs
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<'Line'> | null>(null);
 
   const selectedOutcomeData = outcomes.find(o => o.id === selectedOutcome);
   const price = selectedOutcomeData?.currentPrice || 0;
@@ -61,6 +68,78 @@ export default function SimpleBetting({ marketId, title, outcomes, onBetPlaced }
       }).catch(() => {});
     }
   }, [marketId]);
+
+  // Fetch chart data (for first/Yes outcome)
+  useEffect(() => {
+    if (marketId && outcomes.length > 0) {
+      const outcomeId = outcomes[0].id;
+      marketsApi.getChart(marketId, outcomeId).then((res) => {
+        const data = res.data.data?.map((p: any) => ({
+          time: p.time / 1000,
+          value: p.price * 100,
+        })) || [];
+        setChartData(data);
+      }).catch(() => {});
+    }
+  }, [marketId, outcomes]);
+
+  // Initialize line chart
+  useEffect(() => {
+    if (chartContainerRef.current && chartData.length > 0) {
+      if (chartRef.current) {
+        chartRef.current.remove();
+      }
+
+      const chart = createChart(chartContainerRef.current, {
+        layout: {
+          background: { color: 'transparent' },
+          textColor: '#9ca3af',
+        },
+        grid: {
+          vertLines: { visible: false },
+          horzLines: { color: '#374151', style: 1 },
+        },
+        width: chartContainerRef.current.clientWidth,
+        height: 150,
+        timeScale: {
+          timeVisible: true,
+          secondsVisible: false,
+          borderVisible: false,
+        },
+        rightPriceScale: {
+          borderVisible: false,
+        },
+        crosshair: {
+          horzLine: { visible: false },
+          vertLine: { visible: false },
+        },
+      });
+
+      const series = chart.addAreaSeries({
+        lineColor: '#0ea5e9',
+        topColor: 'rgba(14, 165, 233, 0.3)',
+        bottomColor: 'rgba(14, 165, 233, 0.0)',
+        lineWidth: 2,
+      });
+
+      series.setData(chartData);
+      chart.timeScale().fitContent();
+      chartRef.current = chart;
+      seriesRef.current = series;
+
+      const handleResize = () => {
+        if (chartContainerRef.current) {
+          chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+        }
+      };
+
+      window.addEventListener('resize', handleResize);
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        chart.remove();
+      };
+    }
+  }, [chartData]);
 
   // Fetch user positions
   useEffect(() => {
@@ -212,6 +291,17 @@ export default function SimpleBetting({ marketId, title, outcomes, onBetPlaced }
             <span>Based on current market prices</span>
           </div>
         </div>
+
+        {/* Price Chart */}
+        {chartData.length > 0 && (
+          <div className="bg-gray-800/30 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3 text-sm text-gray-400">
+              <LineChart className="h-4 w-4" />
+              <span>Price History ({outcomes[0]?.name || 'Yes'})</span>
+            </div>
+            <div ref={chartContainerRef} className="w-full" style={{ height: '150px' }} />
+          </div>
+        )}
 
         {/* Outcome Selection */}
         <div className="grid grid-cols-2 gap-4">
