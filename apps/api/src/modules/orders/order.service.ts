@@ -13,7 +13,7 @@ interface PlaceOrderParams {
   marketId: string;
   outcomeId: string;
   side: 'BUY' | 'SELL';
-  orderType: 'LIMIT' | 'MARKET';
+  orderType?: 'LIMIT' | 'MARKET';
   price: number;
   quantity: number;
 }
@@ -25,14 +25,37 @@ interface ListOrdersParams {
   limit: number;
 }
 
-export async function placeOrder(userId: string, params: PlaceOrderParams) {
-  const { marketId, outcomeId, side, orderType, price, quantity } = params;
+// Retry wrapper for database operations (handles Neon connection issues)
+async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      const isConnectionError = error.message?.includes('Connection') ||
+        error.message?.includes('Closed') ||
+        error.code === 'P2024';
 
-  // Validate market is open
-  const market = await prisma.market.findUnique({
+      if (isConnectionError && attempt < maxRetries) {
+        console.log(`📡 Database connection issue, retrying (${attempt}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
+export async function placeOrder(userId: string, params: PlaceOrderParams) {
+  const { marketId, outcomeId, side, orderType = 'LIMIT', price, quantity } = params;
+
+  console.log('🔄 Processing order:', { userId, marketId, outcomeId, side, price, quantity });
+
+  // Validate market is open (with retry)
+  const market = await withRetry(() => prisma.market.findUnique({
     where: { id: marketId },
     include: { outcomes: true },
-  });
+  }));
 
   if (!market) {
     throw new NotFoundError('Market not found');
@@ -60,10 +83,10 @@ export async function placeOrder(userId: string, params: PlaceOrderParams) {
   const entryFee = orderValue * TRADING_CONFIG.ENTRY_FEE_PERCENT;
   const totalRequired = orderValue + entryFee;
 
-  // Get user wallet
-  const wallet = await prisma.wallet.findUnique({
+  // Get user wallet (with retry)
+  const wallet = await withRetry(() => prisma.wallet.findUnique({
     where: { userId },
-  });
+  }));
 
   if (!wallet) {
     throw new NotFoundError('Wallet not found');
@@ -78,8 +101,8 @@ export async function placeOrder(userId: string, params: PlaceOrderParams) {
       );
     }
   } else {
-    // For sell orders, check position
-    const position = await prisma.position.findUnique({
+    // For sell orders, check position (with retry)
+    const position = await withRetry(() => prisma.position.findUnique({
       where: {
         userId_marketId_outcomeId: {
           userId,
@@ -87,15 +110,15 @@ export async function placeOrder(userId: string, params: PlaceOrderParams) {
           outcomeId,
         },
       },
-    });
+    }));
 
     if (!position || Number(position.quantity) < quantity) {
       throw new ValidationError('Insufficient position to sell');
     }
   }
 
-  // Create order and lock funds in a transaction
-  const order = await prisma.$transaction(async (tx) => {
+  // Create order and lock funds in a transaction (with retry)
+  const order = await withRetry(() => prisma.$transaction(async (tx) => {
     // Lock funds for buy orders
     if (side === 'BUY') {
       await tx.wallet.update({
@@ -125,19 +148,19 @@ export async function placeOrder(userId: string, params: PlaceOrderParams) {
     });
 
     return newOrder;
-  });
+  }));
 
   // Try to match the order
   await matchOrder(order.id);
 
   // Return updated order
-  return prisma.order.findUnique({
+  return withRetry(() => prisma.order.findUnique({
     where: { id: order.id },
     include: {
       market: { select: { id: true, title: true } },
       outcome: { select: { id: true, name: true } },
     },
-  });
+  }));
 }
 
 export async function getUserOrders(userId: string, params: ListOrdersParams) {
