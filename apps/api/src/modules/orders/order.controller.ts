@@ -140,7 +140,7 @@ export async function getQuote(req: Request, res: Response, next: NextFunction) 
 }
 
 /**
- * Legacy: Place order (redirects to buy)
+ * Legacy: Place order (redirects to buy/sell)
  * POST /api/orders
  */
 export async function placeOrder(req: Request, res: Response, next: NextFunction) {
@@ -160,11 +160,11 @@ export async function placeOrder(req: Request, res: Response, next: NextFunction
     // Redirect to appropriate AMM endpoint
     if (side === 'SELL') {
       // For sell, convert quantity to shares
-      const sellShares = Number(shares) || Number(quantity) || 1;
+      const sharesToSell = Number(shares) || Number(quantity) || 1;
       req.body = {
         marketId,
         outcomeId,
-        shares: sellShares,
+        shares: sharesToSell,
       };
       console.log('📤 Redirecting to AMM sell:', req.body);
       return sellShares(req, res, next);
